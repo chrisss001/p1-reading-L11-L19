@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>阅读彩虹桥 - 常老师华文乐园 (最终优化版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.16.4/dist/index.js"></script>
+    <style>
+        /* ==================================================
+           全局样式与重置 (终极 App 级防遮挡布局)
+           ================================================== */
+        @import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+        
+        * { box-sizing: border-box; }
+
+        body, html {
+            margin: 0; padding: 0; 
+            width: 100%; 
+            /* 使用 dvh 完美解决 iOS Safari 底部工具栏遮挡问题 */
+            height: 100dvh; 
+            font-family: 'ZCOOL KuaiLe', 'Comic Sans MS', cursive, sans-serif;
+            background: #87CEEB; 
+            overflow: hidden; 
+            display: flex; flex-direction: column;
+            touch-action: manipulation; 
+        }
+
+        .screen { 
+            display: none; width: 100%; height: 100%; 
+            flex-direction: column; align-items: center; justify-content: flex-start; 
+            z-index: 10;
+        }
+        .active-screen { display: flex; }
+
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+        @keyframes cloudMove { from { transform: translateX(100vw); } to { transform: translateX(-20vw); } }
+
+        .clouds { position: fixed; top: 10%; width: 100%; height: 20%; z-index: 1; pointer-events: none; }
+        .cloud { position: absolute; font-size: 80px; animation: cloudMove 20s linear infinite; opacity: 0.8; }
+        .cloud:nth-child(1) { top: 10%; left: 10%; animation-duration: 25s; }
+        .cloud:nth-child(2) { top: 30%; left: 50%; animation-duration: 18s; animation-delay: 5s; }
+        .cloud:nth-child(3) { top: 5%; left: 80%; animation-duration: 22s; animation-delay: 2s; }
+
+        .btn { background-color: #FFB6C1; border: 4px solid #FFF; border-radius: 30px; padding: 15px 40px; font-size: 32px; color: #d81b60; cursor: pointer; box-shadow: 0 8px 0 #d81b60, 0 15px 20px rgba(0,0,0,0.2); transition: all 0.1s; font-family: inherit; margin: 10px; z-index: 50;}
+        .btn:active { transform: translateY(8px); box-shadow: 0 0 0 #d81b60, 0 5px 10px rgba(0,0,0,0.2); }
+        .btn-green { background-color: #98FB98; color: #2E8B57; box-shadow: 0 8px 0 #2E8B57; border-color: #FFF; }
+        .btn-green:active { box-shadow: 0 0 0 #2E8B57; }
+        .btn-blue { background-color: #87CEFA; color: #1E90FF; box-shadow: 0 8px 0 #1E90FF; border-color: #FFF; }
+        .btn-blue:active { box-shadow: 0 0 0 #1E90FF; }
+        
+        .btn-small { background-color: #87CEFA; border: 3px solid #FFF; border-radius: 20px; padding: 10px 20px; font-size: 22px; color: #1E90FF; cursor: pointer; box-shadow: 0 5px 0 #1E90FF, 0 5px 10px rgba(0,0,0,0.2); transition: all 0.1s; font-family: inherit; font-weight: bold; }
+        .btn-small:active { transform: translateY(5px); box-shadow: 0 0 0 #1E90FF; }
+        .btn-speak { background-color: #FFA07A; color: #B22222; box-shadow: 0 5px 0 #B22222; border-color: #FFF;}
+        .btn-speak:active { box-shadow: 0 0 0 #B22222; }
+
+        .btn-mic { 
+            font-size: 40px; padding: 20px 20px; border-radius: 60px; 
+            width: 80%; max-width: 900px; height: auto; text-align: center; 
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
+            margin-top: 10px; display: block;
+            background-color: #FFD700; color: #D2691E; border: 4px solid #FFF;
+            box-shadow: 0 8px 0 #D2691E, 0 10px 15px rgba(0,0,0,0.2);
+            cursor: pointer; font-family: inherit; transition: all 0.1s; z-index: 50;
+        }
+        .btn-mic:active { transform: translateY(8px); box-shadow: 0 0 0 #D2691E; }
+        .btn-mic.listening { animation: pulse 1s infinite; background-color: #98FB98; color: #2E8B57; box-shadow: 0 8px 0 #2E8B57; }
+        .btn-mic.computer-speaking { background-color: #D3D3D3; color: #696969; box-shadow: 0 8px 0 #696969; cursor: not-allowed; }
+
+        .lesson-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; max-width: 900px; margin-top: 10px; z-index: 50; padding-bottom: 30px;}
+        .btn-lesson { background-color: #FFD700; border: 4px solid #FFF; border-radius: 20px; padding: 15px 30px; font-size: 28px; color: #D2691E; cursor: pointer; box-shadow: 0 6px 0 #D2691E, 0 10px 15px rgba(0,0,0,0.2); transition: all 0.1s; font-family: inherit; }
+        .btn-lesson:active { transform: translateY(6px); box-shadow: 0 0 0 #D2691E, 0 5px 10px rgba(0,0,0,0.2); }
+
+        .title-box { text-align: center; animation: float 3s ease-in-out infinite; margin-top: 20px; z-index: 20;}
+        .main-title { font-size: 64px; color: #FFF; text-shadow: 4px 4px 0 #FF69B4; margin: 0; }
+        .sub-title { font-size: 32px; color: #FFF; text-shadow: 2px 2px 0 #FFA500; margin-top: 10px; }
+        .animals-home { font-size: 60px; margin: 20px 0; z-index: 20;}
+
+        .top-bar { 
+            width: 100%; display: flex; justify-content: space-between; align-items: center; 
+            padding: 15px 20px; font-size: 28px; color: #FFF; text-shadow: 2px 2px 0 #FF69B4; 
+            background: rgba(255,255,255,0.4); 
+            z-index: 30; flex-wrap: wrap; flex-shrink: 0;
+        }
+        .left-controls, .right-controls { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; justify-content: center;} 
+        .hearts { color: #FF3366; text-shadow: none; font-size: 24px;}
+        
+        .middle-area { 
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            width: 100%; position: relative; z-index: 20; padding: 10px 0;
+            overflow-y: auto; 
+        }
+        
+        .pinyin-display { font-size: 48px; color: #FF1493; height: 60px; margin-bottom: 5px; opacity: 0; transition: opacity 0.3s; font-family: sans-serif; font-weight: bold; letter-spacing: 5px; text-align: center;}
+
+        .sentence-box { 
+            font-family: 'SimSun', '宋体', 'STSong', serif; 
+            font-weight: bold; font-size: 72px; line-height: 1.2;
+            color: #333; background: #FFF; padding: 30px 50px; 
+            border-radius: 40px; border: 6px solid #FFD700; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15); margin-bottom: 15px; 
+            text-align: center; max-width: 85%; word-wrap: break-word; 
+        }
+        
+        .feedback-text { font-size: 32px; height: 40px; margin-bottom: 5px; font-weight: bold; text-align: center;}
+        .success-text { color: #32CD32; text-shadow: 2px 2px 0 #FFF; }
+        .fail-text { color: #FF8C00; text-shadow: 2px 2px 0 #FFF; }
+
+        .action-row { display: flex; gap: 20px; justify-content: center; margin-top: 15px; z-index: 50; flex-wrap: wrap; }
+
+        .bottom-scene { 
+            width: 100%; height: 250px; position: relative; background: #228B22; 
+            border-top: 10px solid #006400; display: flex; align-items: flex-end; 
+            justify-content: space-between; padding: 0 50px; 
+            z-index: 10; flex-shrink: 0; pointer-events: none; 
+        }
+        .river { position: absolute; bottom: 0; left: 20%; width: 60%; height: 120px; background: #1E90FF; border-radius: 50% 50% 0 0 / 20px 20px 0 0; overflow: hidden; }
+        .wave { font-size: 40px; position: absolute; animation: cloudMove 5s linear infinite; opacity: 0.5; }
+        .rainbow-bridge { position: absolute; bottom: 30px; left: 20%; width: 60%; height: 150px; display: flex; align-items: flex-end; justify-content: space-between; }
+        .bridge-plank { width: 9%; height: 20px; background: #8B4513; border: 2px solid #5C3A21; border-radius: 10px; opacity: 0.2; transition: opacity 0.5s; }
+        .plank-active { opacity: 1; background: linear-gradient(to right, orange, yellow, green, cyan, blue, violet); box-shadow: 0 0 15px yellow; }
+        .animal-runner { font-size: 60px; position: absolute; left: 10%; bottom: 80px; z-index: 15; transition: left 0.5s; }
+        .school { font-size: 100px; position: absolute; right: 5%; bottom: 50px; z-index: 15;}
+        .combo-text { position: absolute; font-size: 48px; color: #FFD700; text-shadow: 2px 2px #FF4500; animation: float 2s infinite; display: none; top: 25%; z-index: 30;}
+
+        /* ==================================================
+           响应式适配 (手机端重点调整)
+           ================================================== */
+        @media (max-width: 1024px) {
+            .main-title { font-size: 50px; }
+            .sub-title { font-size: 26px; }
+            .sentence-box { font-size: 56px; padding: 20px 35px; max-width: 90%; }
+            .btn-mic { font-size: 32px; padding: 15px 15px; width: 90%; }
+            .top-bar { font-size: 22px; padding: 10px 15px; }
+            .bottom-scene { height: 200px; }
+            .river { height: 90px; }
+            .rainbow-bridge { height: 120px; bottom: 20px;}
+            .school { font-size: 80px; bottom: 40px; }
+            .animal-runner { font-size: 50px; bottom: 65px; }
+            .pinyin-display { font-size: 36px; height: 45px;}
+        }
+
+        @media (max-width: 650px) {
+            .main-title { font-size: 32px; text-shadow: 2px 2px 0 #FF69B4; margin-top: 20px;}
+            .sub-title { font-size: 18px; margin-top: 5px; }
+            .animals-home { font-size: 40px; margin: 10px 0; }
+            .lesson-grid { overflow-y: auto; max-height: 60dvh; padding: 10px; align-content: flex-start; pointer-events: auto; }
+            .btn-lesson { font-size: 18px; padding: 10px 15px; border-width: 2px; }
+
+            .top-bar { flex-direction: column; gap: 8px; padding: 8px; background: rgba(255,255,255,0.7); }
+            #progressDisplay { order: -1; font-size: 16px; width: 100%; text-align: center; color:#333; text-shadow: none; font-weight:bold;}
+            .left-controls, .right-controls { width: 100%; justify-content: space-around; gap: 5px;}
+            .btn-small { font-size: 13px; padding: 6px 10px; border-width: 2px; }
+            .hearts, #scoreDisplay { font-size: 16px; }
+
+            .pinyin-display { font-size: 24px; height: 30px; letter-spacing: 2px; margin-bottom: 0;}
+            .sentence-box { font-size: 32px; padding: 15px; border-width: 4px; max-width: 95%; border-radius: 20px; margin-bottom: 10px;}
+            .feedback-text { font-size: 18px; height: 25px; margin-bottom: 0;}
+            .btn-mic { font-size: 20px; padding: 12px 10px; border-width: 3px; width: 95%; border-radius: 40px; margin-top: 5px;}
+            
+            .action-row { margin-top: 10px; gap: 10px; }
+            .action-row .btn { font-size: 16px !important; padding: 8px 20px !important; border-width: 2px; }
+
+            .bottom-scene { height: 110px; padding: 0 5px; border-top-width: 5px; }
+            .river { height: 50px; border-radius: 50% 50% 0 0 / 10px 10px 0 0;}
+            .wave { font-size: 18px; top: 10px !important;}
+            .rainbow-bridge { height: 70px; bottom: 15px; left: 10%; width: 80%;}
+            .bridge-plank { height: 10px; border-width: 1px; }
+            .animal-runner { font-size: 36px; bottom: 30px; left: 5%;}
+            .school { font-size: 55px; bottom: 25px; right: 2%;}
+            .school span { font-size: 22px !important; left: -10px !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="clouds">
+        <div class="cloud">☁️</div>
+        <div class="cloud">☁️</div>
+        <div class="cloud">☁️</div>
+    </div>
+
+    <div id="homeScreen" class="screen active-screen">
+        <div class="title-box">
+            <h1 class="main-title">🌈 阅读彩虹桥</h1>
+            <h2 class="sub-title">常老师华文乐园</h2>
+        </div>
+        <div class="animals-home">🐰 🐼 🦊 🐱</div>
+        
+        <div class="lesson-grid">
+            <button class="btn-lesson" onclick="startGame('11')">第十一课</button>
+            <button class="btn-lesson" onclick="startGame('12')">第十二课</button>
+            <button class="btn-lesson" onclick="startGame('13')">第十三课</button>
+            <button class="btn-lesson" onclick="startGame('14')">第十四课</button>
+            <button class="btn-lesson" onclick="startGame('15')">第十五课</button>
+            <button class="btn-lesson" onclick="startGame('16')">第十六课</button>
+            <button class="btn-lesson" onclick="startGame('17')">第十七课</button>
+            <button class="btn-lesson" onclick="startGame('18')">第十八课</button>
+            <button class="btn-lesson" onclick="startGame('19')">第十九课</button>
+        </div>
+    </div>
+
+    <div id="gameScreen" class="screen">
+        <div class="top-bar">
+            <div id="progressDisplay">第1题 / 共10题</div>
+            <div class="left-controls">
+                <button class="btn-small" onclick="showPinyinHint()">💡 看拼音</button>
+                <div id="heartsDisplay" class="hearts" title="拼音锦囊">❤️❤️❤️❤️❤️</div>
+            </div>
+            <div class="right-controls">
+                <button class="btn-small btn-speak" onclick="playComputerSpeech()">🔊 帮帮我 (-5分)</button>
+                <div id="scoreDisplay">⭐ 0</div>
+            </div>
+        </div>
+
+        <div class="combo-text" id="comboDisplay">🌟 阅读高手！</div>
+
+        <div class="middle-area">
+            <div class="pinyin-display" id="pinyinDisplay">mā ma zài zuò fàn</div>
+            <div class="sentence-box" id="sentenceText">加载中...</div>
+            <div class="feedback-text" id="feedbackMsg"></div>
+
+            <button class="btn-mic" id="micBtn" onclick="manualStartListening()">▶ 开始阅读</button>
+            
+            <div class="action-row">
+                <button class="btn btn-blue" style="font-size: 24px; padding: 10px 30px;" onclick="retryRecording()">🔄 重新录</button>
+                <button class="btn btn-lesson" style="font-size: 24px; padding: 10px 30px;" onclick="skipSentence()">⏭️ 下一题</button>
+            </div>
+        </div>
+
+        <div class="bottom-scene">
+            <div style="font-size: 80px; position:absolute; left: 2%; bottom: 50px;">🌲</div>
+            <div class="river">
+                <div class="wave" style="top: 20px; left: 0;">🌊 🌊 🌊</div>
+                <div class="wave" style="top: 60px; left: 50px;">🌊 🌊 🌊</div>
+            </div>
+            <div class="rainbow-bridge" id="bridgeContainer"></div>
+            <div class="animal-runner" id="animalPlayer">🐰</div>
+            <div class="school">🏫<span style="font-size:40px; position:absolute; left:-20px; bottom:0;">👩‍🏫</span></div>
+        </div>
+    </div>
+
+    <div id="resultScreen" class="screen">
+        <h1 class="main-title">恭喜你！🎉</h1>
+        <h2 class="sub-title">你帮助小动物到达了华文学校！</h2>
+        
+        <div style="background: #FFF; padding: 30px; border-radius: 30px; border: 4px solid #FFD700; text-align: center; margin: 20px; font-size: 24px; width: 90%; max-width: 500px;">
+            <div id="finalStarsDisplay" style="font-size: 40px; color:#FFD700; margin-bottom: 10px;">⭐⭐⭐⭐⭐</div>
+            <p>正确朗读：<span id="finalCorrect" style="color:#32CD32; font-weight:bold;">10 / 10</span></p>
+            <p>获得星星：<span id="finalScore" style="color:#FF8C00; font-weight:bold;">100 ⭐</span></p>
+            <p>最高连击：<span id="finalCombo" style="color:#FF1493; font-weight:bold;">5</span></p>
+            <p>称号：<span id="finalTitle" style="color:#d81b60; font-weight:bold; font-size: 32px;">🏅 阅读彩虹桥大师</span></p>
+        </div>
+
+        <div class="action-row">
+            <button class="btn btn-green" onclick="initGame()">再玩一次</button>
+            <button class="btn" onclick="showScreen('homeScreen')">返回选课</button>
+        </div>
+    </div>
+
+    <script>
+        // ======= 数据与全局变量 =======
+        const lessonData = {
+            11: ["我的朋友坐在左边。", "康康的个子高。", "她的头发长长的。", "她眼睛大大的。", "我们周末一起回家。", "谁坐在你的前面？", "我的同学坐在右边。", "她长什么样子？", "丁丁坐在中间。", "她瘦瘦的头发直直的。"],
+            12: ["你想吃什么？", "我想吃一盘鸭面。", "小狗喜欢吃肉。", "我吃饱了不饿了。", "一盘鸡饭两块半。", "小猫喜欢吃果子。", "弟弟喜欢唱歌。", "我们吃米饭和青菜。", "这个包子很香。", "我喜欢喝鱼汤。"],
+            13: ["冲凉房里有洗发水。", "起床以后要洗脸。", "放学以后要洗手。", "你刷牙了吗？", "我洗脸了。", "我用毛巾抹脸。", "马上要下雨了。", "我们先去冲凉。", "雨点变成了泡泡。", "谢谢你请我喝水。"],
+            14: ["你看见我的袜子了吗？", "我的皮鞋在门外。", "你的袜子是白色的还是红色的？", "我的衣服是红色的。", "大家动作快一点。", "我们一起收拾房间。", "那双红色的鞋子是我的。", "哥哥在穿衣服。", "被子是白色的。", "这支毛笔是红色的。"],
+            15: ["你最喜欢吃什么水果？", "我最喜欢吃西瓜。", "这个西瓜圆圆的红红的。", "这个水果甜甜的。", "你吃过西瓜吗？", "我没有吃过。", "西瓜香香甜甜的。", "哥哥最喜欢喝甘蔗汁。", "妈妈买了一公斤西瓜。", "妹妹抱起一个大西瓜。"],
+            16: ["姐姐在厨房做什么？", "姐姐在厨房洗碗。", "你会做什么家务？", "我会扫地。", "弟弟在房间做作业。", "谁把房间打扫得很干净？", "叔叔在用毛笔写字。", "我听见了他的笑声。", "阿姨买了好吃的面包。", "房间里有桌子和椅子。"],
+            17: ["中秋节你们做什么？", "昨天晚上我们在看星星。", "你们什么时候庆祝国庆日？", "我们在台上讲故事。", "祝你节日快乐。", "因为今天是国庆日。", "老师给大家讲故事。", "我们一起庆祝中秋节。", "每一个儿童都很开心。", "明天我们要上课。"],
+            18: ["这是什么动物？", "这是老虎和狮子。", "什么动物的鼻子长？", "大象的鼻子长。", "兔子的尾巴短。", "星期天我们去动物园。", "小花猫的爪子尖。", "我们大声说话。", "猴子的眼睛很大。", "妈妈带孩子去动物园。"],
+            19: ["你家附近有没有公园？", "我家附近有公园。", "我家附近有学校也有商店。", "我常常去游乐场荡秋千。", "我们在广场拍皮球。", "弟弟在游乐场玩游戏。", "伙伴们一起去图书馆学习。", "我们坐自动扶梯下楼。", "我和朋友常常一起跑步。", "今天大家都很开心。"]
+        };
+
+        let currentSentences = [];
+        let currentSentenceIndex = 0;
+        let score = 0, pinyinHints = 5, combo = 0, maxCombo = 0, correctCount = 0;
+        let isListening = false, isCorrected = false; 
+        let globalSpeechTranscript = ""; 
+        let speechTimeout = null; 
+
+        // ======= 麦克风核心逻辑 =======
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        
+        try {
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.lang = 'zh-CN';
+                recognition.interimResults = true; 
+                recognition.continuous = true;     
+                recognition.maxAlternatives = 1;
+
+                recognition.onstart = function() {
+                    isListening = true;
+                    document.getElementById('micBtn').classList.add('listening');
+                    document.getElementById('micBtn').innerText = "👂 倾听中...";
+                };
+
+                recognition.onresult = (event) => {
+                    if(isCorrected) return;
+                    let sessionTranscript = '';
+                    
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) { globalSpeechTranscript += event.results[i][0].transcript; } 
+                        else { sessionTranscript += event.results[i][0].transcript; }
+                    }
+                    
+                    let fullSpeech = (globalSpeechTranscript + sessionTranscript).trim();
+
+                    // ====== 等待3秒没有声音后判定 ======
+                    if(speechTimeout) clearTimeout(speechTimeout);
+
+                    // 停顿3秒后执行判分逻辑
+                    speechTimeout = setTimeout(() => {
+                        evaluateSpeech(fullSpeech);
+                    }, 3000); 
+                };
+
+                recognition.onerror = (event) => {
+                    console.warn("麦克风后台提示:", event.error);
+                    stopListening();
+                };
+                
+                recognition.onend = () => {
+                    if (isListening && !isCorrected && document.getElementById('gameScreen').classList.contains('active-screen')) {
+                        setTimeout(() => { try { recognition.start(); } catch(e){ stopListening(); } }, 100);
+                    } else {
+                        stopListening();
+                    }
+                };
+            }
+        } catch(e) {
+            console.error("Speech Init Error:", e);
+        }
+
+        // 核心检测方法
+        function evaluateSpeech(fullSpeech) {
+            if(isCorrected || !isListening) return;
+
+            let spokenChars = fullSpeech.replace(/[^\u4e00-\u9fa5]/g, ""); 
+            spokenChars = spokenChars.replace(/[地得滴底啦了呢]/g, "的");
+
+            let targetChars = currentSentences[currentSentenceIndex].replace(/[^\u4e00-\u9fa5]/g, "");
+            targetChars = targetChars.replace(/[地得]/g, "的");
+            
+            let charMatchRate = calculateMatchRate(targetChars, spokenChars);
+            
+            // 【提高门槛】汉字匹配率需达到 75% 才判定过关
+            let charMatched = charMatchRate >= 0.75;
+
+            let pinyinMatched = false;
+            try {
+                const { pinyin } = pinyinPro;
+                // 【恢复声调检测】移除 toneType: 'none'，系统将包含四声进行严格比对
+                let targetPinyin = pinyin(targetChars, { type: 'array' });
+                let spokenPinyin = pinyin(spokenChars, { type: 'array' });
+                let pinyinMatchRate = calculateMatchRate(targetPinyin, spokenPinyin);
+                
+                // 【提高门槛】拼音(含声调)匹配率需达到 75% 才判定过关
+                pinyinMatched = pinyinMatchRate >= 0.75;
+            } catch(e) { }
+            
+            if (charMatched || pinyinMatched) { 
+                isCorrected = true; 
+                handleCorrect(); 
+            } else {
+                let msg = document.getElementById('feedbackMsg');
+                msg.innerText = "🤔 读得不太准，请点击【重新录】再试一次！"; 
+                msg.className = "feedback-text fail-text";
+                document.getElementById('micBtn').innerText = "▶ 重新阅读";
+                stopListening(); 
+            }
+        }
+
+        function calculateMatchRate(target, speech) {
+            if (!target || target.length === 0) return 1;
+            if (!speech || speech.length === 0) return 0;
+            
+            let dp = Array(target.length + 1).fill(0).map(() => Array(speech.length + 1).fill(0));
+            for (let i = 1; i <= target.length; i++) {
+                for (let j = 1; j <= speech.length; j++) {
+                    if (target[i-1] === speech[j-1]) {
+                        dp[i][j] = dp[i-1][j-1] + 1;
+                    } else {
+                        dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
+                    }
+                }
+            }
+            return dp[target.length][speech.length] / target.length;
+        }
+
+        // ======= 游戏流程控制 =======
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active-screen'));
+            document.getElementById(screenId).classList.add('active-screen');
+            if(screenId !== 'gameScreen') stopListening();
+        }
+
+        function startGame(lessonId) {
+            currentSentences = lessonData[lessonId];
+            initGame();
+        }
+
+        function initGame() {
+            currentSentenceIndex = 0; score = 0; pinyinHints = 5; combo = 0; maxCombo = 0; correctCount = 0;
+            updateTopBar();
+            const bridgeContainer = document.getElementById('bridgeContainer');
+            bridgeContainer.innerHTML = '';
+            for (let i = 0; i < currentSentences.length; i++) {
+                const plank = document.createElement('div');
+                plank.className = 'bridge-plank';
+                plank.id = 'plank-' + i;
+                bridgeContainer.appendChild(plank);
+            }
+            document.getElementById('animalPlayer').style.left = '5%';
+            document.getElementById('animalPlayer').className = 'animal-runner';
+            showScreen('gameScreen');
+            loadSentence();
+        }
+
+        function loadSentence() {
+            if(speechTimeout) clearTimeout(speechTimeout); 
+            if (currentSentenceIndex >= currentSentences.length) { endGameSuccess(); return; }
+            isCorrected = false; globalSpeechTranscript = ""; 
+            document.getElementById('sentenceText').innerText = currentSentences[currentSentenceIndex];
+            document.getElementById('progressDisplay').innerText = `第${currentSentenceIndex + 1}题 / 共10题`;
+            document.getElementById('feedbackMsg').innerText = "";
+            document.getElementById('feedbackMsg').className = "feedback-text";
+            document.getElementById('comboDisplay').style.display = "none";
+            document.getElementById('pinyinDisplay').style.opacity = 0;
+            stopListening();
+            document.getElementById('micBtn').innerText = "▶ 开始阅读";
+            document.getElementById('micBtn').classList.remove('computer-speaking');
+        }
+
+        function updateTopBar() {
+            let heartsHtml = "";
+            for(let i=0; i<5; i++) { heartsHtml += (i < pinyinHints) ? "❤️" : "🤍"; }
+            document.getElementById('heartsDisplay').innerText = heartsHtml;
+            document.getElementById('scoreDisplay').innerText = `⭐ ${score}`;
+        }
+
+        function showPinyinHint() {
+            if(pinyinHints > 0) {
+                pinyinHints--; updateTopBar();
+                let pinyinStr = "";
+                try {
+                    const { pinyin } = pinyinPro;
+                    pinyinStr = pinyin(currentSentences[currentSentenceIndex]);
+                    if (currentSentences[currentSentenceIndex].includes("抹脸")) pinyinStr = pinyinStr.replace(/mā liǎn/g, "mǒ liǎn");
+                } catch(e) { pinyinStr = "加载失败"; }
+                let pinyinDiv = document.getElementById('pinyinDisplay');
+                pinyinDiv.innerText = pinyinStr; pinyinDiv.style.opacity = 1;
+                setTimeout(() => { pinyinDiv.style.opacity = 0; }, 5000);
+            } else {
+                let msg = document.getElementById('feedbackMsg');
+                msg.innerText = "拼音锦囊用完啦！"; msg.className = "feedback-text fail-text";
+                setTimeout(()=>{ if(!isCorrected) { msg.innerText = ""; msg.className = "feedback-text"; } }, 2000);
+            }
+        }
+
+        function playComputerSpeech() {
+            if ('speechSynthesis' in window) {
+                stopListening();
+                let micBtn = document.getElementById('micBtn');
+                micBtn.innerText = "🔊 示范中..."; micBtn.classList.add('computer-speaking');
+                if (score >= 5) { score -= 5; } else { score = 0; }
+                updateTopBar();
+                let msg = document.getElementById('feedbackMsg');
+                msg.innerText = "扣除 5 分，请仔细听哦！"; msg.className = "feedback-text fail-text";
+
+                let textToRead = currentSentences[currentSentenceIndex];
+                if (textToRead.includes("抹脸")) textToRead = textToRead.replace(/抹脸/g, "模脸"); 
+
+                let utterance = new SpeechSynthesisUtterance(textToRead);
+                utterance.lang = 'zh-CN'; utterance.rate = 0.8;     
+                utterance.onend = function() {
+                    micBtn.classList.remove('computer-speaking');
+                    micBtn.innerText = "▶ 开始阅读";
+                    if(!isCorrected) { setTimeout(()=>{ msg.innerText = ""; msg.className = "feedback-text"; }, 1000); }
+                };
+                window.speechSynthesis.cancel(); 
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function retryRecording() {
+            if(speechTimeout) clearTimeout(speechTimeout); 
+            stopListening(); globalSpeechTranscript = ""; 
+            document.getElementById('feedbackMsg').innerText = ""; 
+            document.getElementById('micBtn').innerText = "▶ 开始阅读";
+            document.getElementById('micBtn').classList.remove('computer-speaking');
+            window.speechSynthesis.cancel(); 
+            setTimeout(() => { startListening(); }, 200);
+        }
+
+        function skipSentence() {
+            combo = 0; stopListening(); window.speechSynthesis.cancel(); 
+            let animal = document.getElementById('animalPlayer');
+            animal.style.left = (5 + (currentSentenceIndex + 1) * 7) + '%';
+            currentSentenceIndex++; loadSentence();
+        }
+
+        // ======= 麦克风点击触发 =======
+        function manualStartListening() {
+            if(document.getElementById('micBtn').classList.contains('computer-speaking')) return; 
+            if(isListening) return; 
+            if(!recognition) return; 
+            
+            globalSpeechTranscript = ""; 
+            document.getElementById('feedbackMsg').innerText = ""; 
+            startListening();
+        }
+
+        function startListening() {
+            if (!recognition) return;
+            if (isListening) return;
+            
+            document.getElementById('micBtn').innerText = "⏳ 启动中...";
+
+            try {
+                if(window.speechSynthesis) window.speechSynthesis.cancel(); 
+                recognition.start(); 
+            } catch(e) { 
+                console.error("Start Error:", e);
+                stopListening(); 
+            }
+        }
+
+        function stopListening() {
+            isListening = false; 
+            try { if(recognition) recognition.abort(); } catch(e){}
+            let btn = document.getElementById('micBtn');
+            btn.classList.remove('listening');
+            if(!btn.classList.contains('computer-speaking') && btn.innerText.includes("倾听中")) {
+                btn.innerText = "▶ 开始阅读";
+            }
+        }
+
+        function handleCorrect() {
+            stopListening(); window.speechSynthesis.cancel();
+            playSound('success');
+            score += 10; correctCount++; combo++;
+            if(combo > maxCombo) maxCombo = combo;
+
+            let msg = document.getElementById('feedbackMsg');
+            msg.innerText = "✅ 太棒了！"; msg.className = "feedback-text success-text";
+
+            document.getElementById('plank-' + currentSentenceIndex).classList.add('plank-active');
+            let animal = document.getElementById('animalPlayer');
+            animal.style.left = (5 + (currentSentenceIndex + 1) * 7) + '%';
+            animal.style.transform = "translate(0, -20px)";
+            setTimeout(() => { animal.style.transform = "translate(0, 0)"; }, 200);
+
+            let comboDisplay = document.getElementById('comboDisplay');
+            if (combo === 3) { comboDisplay.innerText = "🌟 阅读高手！"; comboDisplay.style.display = "block"; } 
+            else if (combo === 5) { comboDisplay.innerText = "👑 华文小勇士！"; comboDisplay.style.display = "block"; }
+
+            updateTopBar();
+            setTimeout(() => { currentSentenceIndex++; loadSentence(); }, 2000);
+        }
+
+        function endGameSuccess() {
+            stopListening(); window.speechSynthesis.cancel(); playSound('applause');
+            document.getElementById('finalCorrect').innerText = `${correctCount} / 10`;
+            document.getElementById('finalScore').innerText = `${score} ⭐`;
+            document.getElementById('finalCombo').innerText = maxCombo;
+            
+            let title = "👏 阅读小新星";
+            if(correctCount >= 8) title = "🏆 华文阅读小达人";
+            if(correctCount === 10) title = "🏅 阅读彩虹桥大师";
+            document.getElementById('finalTitle').innerText = title;
+
+            let stars = ""; let starCount = Math.ceil(correctCount / 2);
+            for(let i=0; i<5; i++) { stars += (i < starCount) ? "⭐" : "☆"; }
+            document.getElementById('finalStarsDisplay').innerText = stars;
+            showScreen('resultScreen');
+        }
+
+        function playSound(type) {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+                osc.connect(gainNode); gainNode.connect(ctx.destination);
+                
+                if (type === 'success') {
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(880, ctx.currentTime); osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1);
+                    gainNode.gain.setValueAtTime(0.5, ctx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                    osc.start(); osc.stop(ctx.currentTime + 0.5);
+                }
+            } catch(e) {}
+        }
+    </script>
+</body>
+</html>
